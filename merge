@@ -1,0 +1,50 @@
+#!/bin/python
+import argparse
+import os
+from pypdf import PdfWriter
+import subprocess
+
+parser = argparse.ArgumentParser(prog="PDF-Merger", description="merge pdfs via the cli", epilog="example merge.py --all ")
+
+parser.add_argument("-a", "--all", help="merge all pdfs in the specified directory", action="store_true")
+parser.add_argument("-i", "--input", nargs="+", help="list of files to be merged")
+parser.add_argument("-s", "--sort", help="sort pdfs give in alphabetical order (default)", action="store_true")
+parser.add_argument("-n", "--name", help="name of the combined pdf, default is combined.pdf", default="combined.pdf")
+parser.add_argument("-d", "--dest", help="path to where the combines pdf should be stored", default=".")
+parser.add_argument("source", nargs="?", help="path directory containing pdfs to be merged")
+args = parser.parse_args()
+
+def merge(pdfs:list[str], dest:str, name:str):
+    merger = PdfWriter()
+    valid_pdfs = filter(lambda x: x.endswith(".pdf"), pdfs)
+    for pdf in valid_pdfs:
+        merger.append(pdf)
+
+    os.chdir(os.path.expanduser(dest))
+    merger.write(name)
+    merger.close()
+    
+    subprocess.run(["notify-send", "-i", "face-wink", "-t", "300", "pdfs merged!", f"{os.path.abspath(os.curdir)}"])
+
+
+    
+name = args.name
+should_sort = args.sort
+dest = args.dest
+
+if args.all:
+    print("ALLL!!!")
+    os.chdir(args.source)
+    pdfs = list(filter(lambda x: x.endswith(".pdf"), os.listdir()))
+
+    if should_sort: 
+        pdfs = sorted(os.listdir())
+        print(f"pdfs: {pdfs}")
+        print(os.path.expanduser(args.dest))
+
+    merge(pdfs, os.path.expanduser(args.dest), name)
+else:
+    print("not ALL!!")
+    pdfs = sorted(args.input) if should_sort else args.input
+
+    merge(pdfs, dest, name)
