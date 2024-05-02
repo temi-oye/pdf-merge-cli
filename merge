@@ -20,29 +20,39 @@ def merge(pdfs:list[str], dest:str, name:str):
 
 def select_merge(args: argparse.Namespace):
     name = args.name
-    should_sort = args.sort
+    alpha = args.alpha
+    last_mod = args=last_mod
     dest = args.dest
+    pdfs = args.input
 
-    print("not ALL!!")
-    pdfs = sorted(args.input) if should_sort else args.input
+
+    if alpha:
+        pdfs.sort()
+    if last_mod:
+        pdfs.sort(key=get_modified_time)
 
     merge(pdfs, dest, name)
 
 
 def all_merge(args: argparse.Namespace):
     name = args.name
-    should_sort = args.sort
+    alpha = args.alpha
+    last_mod = args.last_mod
     dest = args.dest
 
     os.chdir(args.source)
     pdfs = list(filter(lambda x: x.endswith(".pdf"), os.listdir()))
 
 
-    pdfs = sorted(os.listdir()) if should_sort else os.listdir()
-    print(f"pdfs: {pdfs}")
-    print(os.path.expanduser(dest))
+    if alpha:
+        pdfs.sort()
+    if last_mod:
+        pdfs.sort(key=get_modified_time)
+
     merge(pdfs, os.path.expanduser(dest), name)
 
+def get_modified_time(filename:str):
+    return os.stat(filename).st_mtime
 
 def main():
     parser = argparse.ArgumentParser(prog="PDF-Merger", description="merge pdfs via the cli", epilog="example merge.py --all ")
@@ -52,12 +62,15 @@ def main():
 
 
     select_parser.add_argument("-i", "--input", nargs="+", help="list of files to be merged")
-    select_parser.add_argument("-s", "--sort", help="sort pdfs give in alphabetical order (default)", action="store_true")
+
+    select_parser.add_argument("-a", "--alpha", help="sort pdfs give in alphabetical order", action="store_true")
+    select_parser.add_argument("-l", "--last-mod", help="sort pdfs give by last modified (default)", action="store_true")
     select_parser.add_argument("-n", "--name", help="name of the combined pdf, default is combined.pdf", default="combined.pdf")
     select_parser.add_argument("-d", "--dest", help="path to where the combines pdf should be stored", default=".")
     select_parser.set_defaults(func=select_merge)
 
-    all_parser.add_argument("-s", "--sort", help="sort pdfs give in alphabetical order (default)", action="store_true")
+    all_parser.add_argument("-a", "--alpha", help="sort pdfs give in alphabetical order", action="store_true")
+    all_parser.add_argument("-l", "--last-mod", help="sort pdfs give by last modified (default)", action="store_true")
     all_parser.add_argument("-n", "--name", help="name of the combined pdf, default is combined.pdf", default="combined.pdf")
     all_parser.add_argument("source", help="path directory containing pdfs to be merged", default=".")
     all_parser.add_argument("dest", help="where merged pdfs will be stored", default=".")
@@ -66,8 +79,7 @@ def main():
     args = parser.parse_args()
     args.func(args)
 
-    print(args)
-        
+    print(args)        
 
 
 if __name__ == "__main__":
