@@ -12,6 +12,11 @@ def merge(pdfs:list[str], dest:str, name:str):
         merger.append(pdf)
 
     os.chdir(os.path.expanduser(dest))
+
+    if not name.endswith(".pdf"):
+        print("name must end in .pdf")
+        exit(1)
+
     merger.write(name)
     merger.close()
     
@@ -24,12 +29,16 @@ def select_merge(args: argparse.Namespace):
     last_mod = args=last_mod
     dest = args.dest
     pdfs = args.input
+    base_path = os.getcwd()
 
 
     if alpha:
         pdfs.sort()
     if last_mod:
         pdfs.sort(key=get_modified_time)
+
+    if dest == ".":
+        dest = base_path
 
     merge(pdfs, dest, name)
 
@@ -39,6 +48,7 @@ def all_merge(args: argparse.Namespace):
     alpha = args.alpha
     last_mod = args.last_mod
     dest = args.dest
+    base_path = os.getcwd()
 
     os.chdir(args.source)
     pdfs = list(filter(lambda x: x.endswith(".pdf"), os.listdir()))
@@ -48,6 +58,9 @@ def all_merge(args: argparse.Namespace):
         pdfs.sort()
     if last_mod:
         pdfs.sort(key=get_modified_time)
+
+    if dest == ".":
+        dest = base_path
 
     merge(pdfs, os.path.expanduser(dest), name)
 
