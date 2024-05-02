@@ -4,18 +4,24 @@ import os
 from pypdf import PdfWriter
 import subprocess
 
-
+def pre_merge_checks(name:str, dest: str):
+    if not name.endswith(".pdf"):
+        print("name must end in .pdf")
+        exit(1)
+    if name in set(os.listdir(os.path.expanduser(dest))):
+        print("name already exists in destination dir")
+        exit(1)
+        
 def merge(pdfs:list[str], dest:str, name:str):
+
+    pre_merge_checks(name, dest)
+
     merger = PdfWriter()
     valid_pdfs = filter(lambda x: x.endswith(".pdf"), pdfs)
     for pdf in valid_pdfs:
         merger.append(pdf)
 
     os.chdir(os.path.expanduser(dest))
-
-    if not name.endswith(".pdf"):
-        print("name must end in .pdf")
-        exit(1)
 
     merger.write(name)
     merger.close()
