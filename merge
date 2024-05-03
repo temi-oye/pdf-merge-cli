@@ -36,50 +36,45 @@ def sort_pdfs(alpha: bool, last_mod: bool, pdfs:list[str]):
     if last_mod:
         pdfs.sort(key=lambda x: os.stat(x).st_mtime)
 
-def select_merge(args: argparse.Namespace):
-    _, pdfs, alpha, last_mod, name, dest, clobber, _ = vars(args).values()
-    
-    sort_pdfs(alpha, last_mod, pdfs)
-    
+def select_merge(args: argparse.Namespace):  
+    sort_pdfs(args.alpha, args.last_mod, args.pdfs)
+
+    dest = args.dest
     dest == os.getcwd() if dest == "." else dest
     
-    merge(pdfs, dest, name, clobber)
+    merge(args.input, dest, args.name, args.clobber)
 
 
 def all_merge(args: argparse.Namespace):
-    _, alpha, last_mod, name, source, dest, clobber, _ = vars(args).values()
-    pdfs = list(filter(lambda x: x.endswith(".pdf"), os.listdir(source)))
+    pdfs = list(filter(lambda x: x.endswith(".pdf"), os.listdir(args.source)))
 
-    sort_pdfs(alpha, last_mod, pdfs)
+    sort_pdfs(args.alpha, args.last_mod, pdfs)
+    pdfs = list(map(lambda x: args.source + x, pdfs))
 
-    pdfs = list(map(lambda x: source + x, pdfs))
-
+    dest = args.dest
     dest == os.getcwd() if dest == "." else dest
 
-    merge(pdfs, os.path.expanduser(dest), name, clobber)
+    merge(pdfs, os.path.expanduser(dest), args.name, args.clobber)
 
 def main():
     parser = argparse.ArgumentParser(prog="PDF-Merger", description="merge pdfs via the cli", epilog="example merge all -n lecture_slides.pdf --last-mod slides/ ~/Desktop")
     subparsers = parser.add_subparsers(help="use all to merge all the pdfs in a directory use select if you want to specify which pdfs get merged", required=True, dest="command") # dest is where the names of the sub command is stored ie all / select
 
-    all_parser = subparsers.add_parser("all", help="all help")
-    select_parser = subparsers.add_parser("select", help="select help")    
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument("-a", "--alpha", help="sort pdfs give in alphabetical order", action="store_true")
+    parent_parser.add_argument("-l", "--last-mod", help="sort pdfs give by last modified (default)", action="store_true")
+    parent_parser.add_argument("-n", "--name", help="name of the combined pdf, default is combined.pdf", default="combined.pdf")
+    parent_parser.add_argument("-c", "--clobber", help="clobber / overwrite", action="store_true")
 
 
+    select_parser = subparsers.add_parser("select", help="select help", parents=[parent_parser])    
     select_parser.add_argument("-i", "--input", nargs="+", help="list of files to be merged")
-    select_parser.add_argument("-a", "--alpha", help="sort pdfs give in alphabetical order", action="store_true")
-    select_parser.add_argument("-l", "--last-mod", help="sort pdfs give by last modified (default)", action="store_true")
-    select_parser.add_argument("-n", "--name", help="name of the combined pdf, default is combined.pdf", default="combined.pdf")
-    select_parser.add_argument("-d", "--dest", help="path to where the combines pdf should be stored", default=".")
-    select_parser.add_argument("-c", "--clobber", help="clobber / overwrite", action="store_true")
+    parent_parser.add_argument("-d", "--dest", help="path to where the combines pdf should be stored", default=".")
     select_parser.set_defaults(func=select_merge)
 
-    all_parser.add_argument("-a", "--alpha", help="sort pdfs give in alphabetical order", action="store_true")
-    all_parser.add_argument("-l", "--last-mod", help="sort pdfs give by last modified (default)", action="store_true")
-    all_parser.add_argument("-n", "--name", help="name of the combined pdf, default is combined.pdf", default="combined.pdf")
+    all_parser = subparsers.add_parser("all", help="all help", parents=[parent_parser])
     all_parser.add_argument("source", help="path directory containing pdfs to be merged", default=".")
-    all_parser.add_argument("dest", help="where merged pdfs will be stored", default=".")
-    all_parser.add_argument("-c", "--clobber", help="clobber / overwrite", action="store_true")
+    all_parser.add_argument("dest", help="path to where the combines pdf should be stored", default=".")
     all_parser.set_defaults(func=all_merge)
     
     args = parser.parse_args()
