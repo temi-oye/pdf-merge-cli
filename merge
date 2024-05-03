@@ -4,88 +4,74 @@ import os
 from pypdf import PdfWriter
 import subprocess
 
-def pre_merge_checks(name:str, dest: str):
+def pre_merge_checks(name:str, dest: str, should_clobber: bool):
     if not name.endswith(".pdf"):
-        print("name must end in .pdf")
-        exit(1)
-    if name in set(os.listdir(os.path.expanduser(dest))):
-        print("name already exists in destination dir")
-        exit(1)
-        
-def merge(pdfs:list[str], dest:str, name:str):
+        raise ValueError("name must end in .pdf")
+    if name in set(os.listdir(os.path.expanduser(dest))) and not should_clobber:
+        raise ValueError("name already exists in destination dir")
 
-    pre_merge_checks(name, dest)
+def merge(pdfs:list[str], dest:str, name:str, clobber: bool):
+
+    pre_merge_checks(name, dest, clobber)
 
     merger = PdfWriter()
     valid_pdfs = filter(lambda x: x.endswith(".pdf"), pdfs)
+
+    dest_path = os.path.expanduser(dest)
     for pdf in valid_pdfs:
         merger.append(pdf)
 
-    os.chdir(os.path.expanduser(dest))
-
-    merger.write(name)
+    merger.write(os.path.join(dest_path, name))
     merger.close()
-    
-    subprocess.run(["notify-send", "-i", "face-wink", "-t", "300", "pdfs merged!", f"{os.path.abspath(os.curdir)}"])
+
+    notify("PDFs merged!", os.path.abspath(dest_path))
 
 
-def select_merge(args: argparse.Namespace):
-    name = args.name
-    alpha = args.alpha
-    last_mod = args=last_mod
-    dest = args.dest
-    pdfs = args.input
-    base_path = os.getcwd()
+def notify(message: str, path: str):
+    subprocess.run(["notify-send", "-i", "face-wink", "-t", "300", message, path])
 
-
+def sort_pdfs(alpha: bool, last_mod: bool, pdfs:list[str]):
     if alpha:
         pdfs.sort()
     if last_mod:
-        pdfs.sort(key=get_modified_time)
+        pdfs.sort(key=lambda x: os.stat(x).st_mtime)
 
-    if dest == ".":
-        dest = base_path
-
-    merge(pdfs, dest, name)
+def select_merge(args: argparse.Namespace):
+    _, pdfs, alpha, last_mod, name, dest, clobber, _ = vars(args).values()
+    
+    sort_pdfs(alpha, last_mod, pdfs)
+    
+    dest == os.getcwd() if dest == "." else dest
+    
+    merge(pdfs, dest, name, clobber)
 
 
 def all_merge(args: argparse.Namespace):
-    name = args.name
-    alpha = args.alpha
-    last_mod = args.last_mod
-    dest = args.dest
-    base_path = os.getcwd()
+    _, alpha, last_mod, name, source, dest, clobber, _ = vars(args).values()
+    pdfs = list(filter(lambda x: x.endswith(".pdf"), os.listdir(source)))
 
-    os.chdir(args.source)
-    pdfs = list(filter(lambda x: x.endswith(".pdf"), os.listdir()))
+    sort_pdfs(alpha, last_mod, pdfs)
 
+    pdfs = list(map(lambda x: source + x, pdfs))
 
-    if alpha:
-        pdfs.sort()
-    if last_mod:
-        pdfs.sort(key=get_modified_time)
+    dest == os.getcwd() if dest == "." else dest
 
-    if dest == ".":
-        dest = base_path
-
-    merge(pdfs, os.path.expanduser(dest), name)
-
-def get_modified_time(filename:str):
-    return os.stat(filename).st_mtime
+    merge(pdfs, os.path.expanduser(dest), name, clobber)
 
 def main():
-    parser = argparse.ArgumentParser(prog="PDF-Merger", description="merge pdfs via the cli", epilog="example merge.py --all ")
-    subparsers = parser.add_subparsers(help="use all to merge all pdfs")
+    parser = argparse.ArgumentParser(prog="PDF-Merger", description="merge pdfs via the cli", epilog="example merge all -n lecture_slides.pdf --last-mod slides/ ~/Desktop")
+    subparsers = parser.add_subparsers(help="use all to merge all the pdfs in a directory use select if you want to specify which pdfs get merged", required=True, dest="command") # dest is where the names of the sub command is stored ie all / select
+
     all_parser = subparsers.add_parser("all", help="all help")
-    select_parser = subparsers.add_parser("select", help="select help")
+    select_parser = subparsers.add_parser("select", help="select help")    
 
 
     select_parser.add_argument("-i", "--input", nargs="+", help="list of files to be merged")
-
     select_parser.add_argument("-a", "--alpha", help="sort pdfs give in alphabetical order", action="store_true")
     select_parser.add_argument("-l", "--last-mod", help="sort pdfs give by last modified (default)", action="store_true")
     select_parser.add_argument("-n", "--name", help="name of the combined pdf, default is combined.pdf", default="combined.pdf")
     select_parser.add_argument("-d", "--dest", help="path to where the combines pdf should be stored", default=".")
+    select_parser.add_argument("-c", "--clobber", help="clobber / overwrite", action="store_true")
     select_parser.set_defaults(func=select_merge)
 
     all_parser.add_argument("-a", "--alpha", help="sort pdfs give in alphabetical order", action="store_true")
@@ -93,13 +79,11 @@ def main():
     all_parser.add_argument("-n", "--name", help="name of the combined pdf, default is combined.pdf", default="combined.pdf")
     all_parser.add_argument("source", help="path directory containing pdfs to be merged", default=".")
     all_parser.add_argument("dest", help="where merged pdfs will be stored", default=".")
+    all_parser.add_argument("-c", "--clobber", help="clobber / overwrite", action="store_true")
     all_parser.set_defaults(func=all_merge)
     
     args = parser.parse_args()
     args.func(args)
-
-    print(args)        
-
 
 if __name__ == "__main__":
     main()
